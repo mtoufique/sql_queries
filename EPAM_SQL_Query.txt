@@ -1,0 +1,10 @@
+with total_marks AS(
+SELECT *,coalesce(sql,0)+coalesce(algo,0)+coalesce(bug_fixing,0) As total_marks_obtained,
+CASE WHEN sql is NUll THEN 1 ELSE 0 END +CASE WHEN algo is NUll THEN 1 ELSE 0 END+CASE WHEN bug_fixing is NUll THEN 1 ELSE 0 END
+AS No_test_flag
+FROM assessments)
+SELECT experience,count(*) AS total_students,
+SUM(CASE WHEN total_marks_obtained=(300-(No_test_flag)*100) THEN 1 ELSE 0 END)
+AS no_students_perfect_score
+FROM total_marks
+GROUP BY experience
