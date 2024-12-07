@@ -1,0 +1,18 @@
+
+WITH legal AS(
+SELECT *,NTILE(50)OVER(ORDER BY ball_no ASC) AS over_no
+FROM cricket_runs
+WHERE delivery_type='legal'),
+last_ball_over AS(
+SELECT  over_no,max(ball_no)AS last_ball_over
+FROM legal
+GROUP BY over_no),
+updated_over AS(
+SELECT *,(count(last_ball_over)OVER(ORDER BY ball_no)+1)AS updated_over_no,
+CASE WHEN delivery_type!='legal' then runs+1 ELSE runs END AS updated_runs
+FROM last_ball_over a
+RIGHT JOIN cricket_runs b ON a.last_ball_over=b.ball_no)
+SELECT updated_over_no,sum(updated_runs) AS runs_over
+FROM updated_over
+WHERE updated_over_no<=50
+GROUP BY updated_over_no
