@@ -1,0 +1,14 @@
+with buyer_seller AS(
+SELECT customer_id AS seller_customer_id,transaction_id AS seller_transaction_id,amount,
+tran_date,
+LEAD(transaction_id)OVER(ORDER BY transaction_id) AS buyer_transaction_id,
+LEAD(customer_id)OVER(ORDER BY transaction_id) AS buyer_customer_id
+FROM Transactions),
+buyer_seller_group AS(
+SELECT seller_customer_id,buyer_customer_id,
+count(*) AS no_transactions
+FROM buyer_seller
+WHERE seller_transaction_id%2!=0
+GROUP BY seller_customer_id,buyer_customer_id)
+SELECT * FROM buyer_seller_group WHERE seller_customer_id NOT IN (SELECT DISTINCT buyer_customer_id FROM buyer_seller_group)
+AND buyer_customer_id NOT IN (SELECT DISTINCT seller_customer_id FROM buyer_seller_group)
