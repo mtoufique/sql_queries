@@ -1,0 +1,59 @@
+---1)Top Outlet by cuisine
+with no_orders AS(
+SELECT Cuisine,Restaurant_id,count(*) AS no_orders
+FROM Orders
+GROUP BY Cuisine,Restaurant_id),
+cuisines_restaurant_rn AS(
+SELECT *,DENSE_RANK()OVER(PARTITION BY Cuisine ORDER BY no_orders DESC) AS rank_cuisines_restaurant
+FROM no_orders)
+SELECT * FROM cuisines_restaurant_rn WHERE rank_cuisines_restaurant=1
+
+----2) Find the daily new customer count from the launch date(everyday how many new cosutomers we are acquiring)
+with order_rank AS(
+SELECT *,DENSE_RANK()OVER(PARTITION BY Customer_code ORDER BY CAST(Placed_at AS Date)) AS order_rn
+FROM orders)
+SELECT CAST(Placed_at AS Date)AS Order_Date,COUNT(DISTINCT Customer_code) AS no_new_customers
+FROM order_rank
+WHERE order_rn=1
+GROUP BY CAST(Placed_at AS Date)
+---3)Count of all the users who placed their first order in Jan 2025 and only placed one order in Jan and
+---did not place any other order
+with Jan_Total_Orders AS(
+SELECT *,min(CAST(Placed_at AS Date))OVER(PARTITION BY Customer_code) AS First_Order_Date,
+COUNT(*)OVER(PARTITION BY Customer_code) AS Total_orders_Customer
+FROM orders)
+SELECT * FROM Jan_Total_Orders
+WHERE First_Order_Date>='2025-01-01' AND First_Order_Date<='2025-01-31'
+AND Total_orders_Customer=1
+
+---4)List all customers with no orders in last 7 days but were acquired one month ago with their first order on promo
+with customer_order_profile AS(
+SELECT *,min(CAST(Placed_at AS Date))OVER(PARTITION BY Customer_code) AS First_Order_Date,
+max(CAST(Placed_at AS Date))OVER(PARTITION BY Customer_code) AS Last_Order_Date,
+DATEDIFF(DAY,max(CAST(Placed_at AS Date))OVER(PARTITION BY Customer_code),CAST(GETDATE() AS DATE)) 
+AS Days_since_last_order,
+DATEDIFF(DAY,min(CAST(Placed_at AS Date))OVER(PARTITION BY Customer_code),CAST(GETDATE() AS DATE)) 
+AS Days_since_customer_acquired,
+DENSE_RANK()OVER(PARTITION BY Customer_code ORDER BY CAST(Placed_at AS Date)) AS first_order_flag
+FROM orders)
+SELECT DISTINCT(Customer_code)
+FROM customer_order_profile
+WHERE first_order_flag=1 AND Promo_code_Name IS NOT NULL
+AND Days_since_last_order>7 AND Days_since_customer_acquired>=30
+
+----5) Growth team is asking planning to create a trigger that will target customers after every third order
+with order_rank AS(
+SELECT *,DENSE_RANK()OVER(PARTITION BY Customer_code ORDER BY CAST(Placed_at AS Date)) AS order_rn,
+CAST(GETDATE()AS Date) AS today_date
+FROM orders)
+SELECT * FROM order_rank
+WHERE order_rn%3=0 AND today_date=CAST(Placed_at AS Date)
+
+---6) List all customers who placed more than 1 order and all their orders on a promo only
+SELECT Customer_code,COUNT(*) AS Total_Orders,
+COUNT(CASE WHEN CAST(promo_code_name AS varchar(50)) IS NOT NULL THEN Order_id END) AS total_promo_orders
+FROM orders
+GROUP BY Customer_code
+HAVING COUNT(*)>1 AND COUNT(CASE WHEN CAST(promo_code_name AS varchar(50)) IS NOT NULL THEN Order_id END)=COUNT(*)
+
+
