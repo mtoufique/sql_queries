@@ -1,0 +1,13 @@
+with flight_routes AS(
+SELECT a.*,b.city_name AS start_city,c.city_name AS end_city
+FROM flights a
+INNER JOIN airports b ON a.start_port=b.port_code
+INNER JOIN airports c ON a.end_port=c.port_code)
+SELECT a.start_city,b.start_city AS middle_city,b.end_city AS destination_city,
+DATEDIFF(minute,a.start_time,COALESCE(b.end_time,a.end_time)) AS time_taken,
+CASE WHEN b.start_city IS NULL THEN a.flight_id 
+ELSE CONCAT(a.flight_id,',',b.flight_id) END as flight_id
+FROM flight_routes a
+LEFT JOIN flight_routes b ON a.end_city=b.start_city
+AND b.start_time>=a.end_time
+WHERE a.start_city='New York' AND (b.end_city='Tokyo' OR a.end_city='Tokyo')
